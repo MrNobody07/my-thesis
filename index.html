@@ -1,0 +1,197 @@
+<html>
+    <head>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js" integrity="sha512-aVKKRRi/Q/YV+4mjoKBsE4x3H+BkegoM/em46NNlCqNTmUYADjBbeNefNxYV7giUp0VxICtqdrbqU7iVaeZNXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.8.1/web3.min.js" integrity="sha512-vtUOC0YIaNm/UutU7yfnwqnF9LOYnXtpHe2kwi1nvJNloeGQuncNBiEKP/3Ww3D62USAhbXGsnYpAYoiDsa+wA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <link rel="stylesheet" type="text/css" href="style.css" /> 
+    </head>
+    <body>
+
+        <center>
+            <h1>Polygon Digital Collectibles DApp</h1>
+            <p id="totalNFTs"></p>
+            <div>
+                <button class="button" onclick="MintNFT()">Mint NFT</button>
+            </div>
+            <hr>
+            <div>
+                <button class="button" onclick="GetNFT()">Get NFT</button>
+                <input id="tokenId" placeholder="Type tokenId">
+            </div>
+            <div class="imgdiv">
+                <img height=100 id="nftpng"/>
+                <p id="nftname"></p>
+                <p id="nftowner"></p>
+            </div>
+            <hr>
+            <div>
+                <button class="button" onclick="TransferNFT()">Transfer NFT</button>
+                <input id="toAddress" placeholder="Transfer address">
+                
+            </div>
+            <div>
+                <h2>Upload NFT Image</h2>
+                <input type="file" id="fileInput" />
+                <input type="text" id="imageName" placeholder="Enter image name">
+                <button class="button" onclick="uploadImage()">Upload Image</button>
+            </div>
+           
+        </center>
+
+        <script src="contract.js"></script>
+        <script>
+            var accounts;
+            var myContract;
+            let currentTokenURI = '';
+            async function CheckMetamaskConnection(){
+                if(window.ethereum){
+                    try{
+                        web3 = new Web3(window.ethereum);
+                        accounts = await window.ethereum.request({method:'eth_requestAccounts'})
+                        console.log("Done!")
+                        return true;
+                    }catch(err){
+                        console.log(err)
+                        return false;
+                    }
+                } else {
+                    console.log("Metamask Not Found!")
+                    return false;
+                }
+            }
+
+            $(document).ready(async function () {
+                
+                var IsMetaMask = await CheckMetamaskConnection();
+
+                if(IsMetaMask){
+                    console.log("IsMetaMask = true");
+                    myContract = await new web3.eth.Contract(SmartContractABI, SmartContractAddress);
+                    console.log(myContract);
+                    totalNFTsMinted();
+                } else {
+                    alert("Metamask not detected!")
+                }
+
+            })
+
+            async function totalNFTsMinted(){
+                await myContract.methods.currentTokenId().call(function(err, res){
+                    if(!err){
+                        console.log(res);
+                        document.getElementById("totalNFTs").innerHTML = "Total NFTs Minted : " + res;
+                    }
+                })
+            }
+
+            async function GetNFT(){
+                var tokenId = document.getElementById("tokenId").value;
+
+                await myContract.methods.tokenURI(tokenId).call(async function(err, res){
+                    if(!err){
+                        console.log(res);
+                        JSONResponse = await httpGet(res);
+                        JSONResponse = JSON.parse(JSONResponse);
+                        console.log(JSONResponse)
+                        document.getElementById("nftpng").src = JSONResponse["image"];
+                        document.getElementById("nftname").innerHTML = "Name : " + JSONResponse["name"];
+                        getNFTOwner(tokenId);
+                    } else{
+                        console.log(err);
+                    }
+                })
+            }
+
+            async function getNFTOwner(_tokenId){
+                await myContract.methods.ownerOf(_tokenId).call(function(err, res){
+                    if(!err){
+                        console.log(res);
+                        document.getElementById("nftowner").innerHTML = "Owner : " + res;
+                    }
+                })
+            }
+
+            async function MintNFT(){
+                if(currentTokenURI === '') {
+                    alert('No token URI available. Please upload an image first.');
+                    return;
+                }
+
+                await myContract.methods.mintNFT(currentTokenURI).send({from: accounts[0]})
+                .then(function(receipt){
+                    console.log('Minted NFT with transaction: ', receipt.transactionHash);
+                    alert('NFT minted successfully!');
+                    currentTokenURI = ''; // Reset currentTokenURI after successful minting
+                    totalNFTsMinted(); // Update total NFTs minted
+                }).catch(function(error){
+                    console.error('Minting NFT failed: ', error);
+                    alert('Minting NFT failed. See console for more details.');
+                });
+            }
+
+
+            async function TransferNFT(_tokenId){
+                var toAddress = document.getElementById("toAddress").value;
+                var tokenId = document.getElementById("tokenId").value;
+                await myContract.methods.transferFrom(accounts[0], toAddress, tokenId).send({from: accounts[0]}, function(err, res){
+                    if(!err){
+                        console.log(res);
+                    }else{
+                        console.log(err);
+                    }
+                })
+            }
+            async function uploadImage() {
+                const imageName = document.getElementById('imageName').value;
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+
+                if (file && imageName) {
+                    // Endpoint URL from Pinata to pin the file
+                    const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`;
+
+                    let data = new FormData();
+                    data.append('file', file);
+
+                    try {
+                        const imageResponse = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'pinata_api_key': 'd16da5d2841236be70e1',
+                                'pinata_secret_api_key': '160f4a2105d0f7aec45de05dae1d4865acbb75338588f3be8bdb280764d1cb49'
+                            },
+                            body: data
+                        });
+
+                        if (imageResponse.ok) {
+                            const imageJsonResponse = await imageResponse.json();
+                            const imageIpfsHash = imageJsonResponse.IpfsHash;
+
+                            // Construct the image URL for the NFT metadata
+                            const imageUrl = `https://tan-working-jay-591.mypinata.cloud/ipfs/${imageIpfsHash}`;
+
+                            // Store the image URL in currentTokenURI to be used in minting
+                            currentTokenURI = imageUrl;
+                            console.log('Image uploaded and currentTokenURI set:', currentTokenURI);
+                        } else {
+                            console.error('Image upload failed');
+                        }
+                    } catch (error) {
+                        console.error('Error uploading image:', error);
+                    }
+                } else {
+                    alert('Please select a file and enter a name for the image.');
+                }
+            }
+            function httpGet(theUrl){
+                var xmlHttp = new XMLHttpRequest();
+                xmlHttp.open( "GET", theUrl, false ); // false for synchronous request
+                xmlHttp.send( null );
+                return xmlHttp.responseText;
+            }
+
+        </script>
+    </body>
+
+
+</html>

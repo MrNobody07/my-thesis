@@ -1,0 +1,20 @@
+{
+  "name": "polygon-nft-dapp-tutorial-series-main",
+  "version": "1.0.0",
+  "description": "[![License: MIT](https://img.shields.io/npm/l/express?color=orange)](https://opensource.org/licenses/MIT) [![Discord](https://img.shields.io/discord/475163926187999242?logo=discord)](https://discord.gg/t36kuCt) [![Github Follow](https://img.shields.io/github/followers/ThisIsCodeXpert?style=social)](https://github.com/ThisIsCodeXpert)",
+  "main": "contract.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.3",
+    "dotenv": "^16.3.1",
+    "form-data": "^4.0.0",
+    "fs": "^0.0.1-security",
+    "http-server": "^14.1.1",
+    "node-fetch": "^2.6.1",
+    "solidity": "^0.0.1"
+  }
+}
